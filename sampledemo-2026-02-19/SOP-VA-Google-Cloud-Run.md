@@ -186,6 +186,10 @@ gcloud run services describe "$SERVICE_NAME" \
 ```
 
 Open the URL in browser and verify login page loads.
+Use this login email for the demo:
+
+1. Email: `jake@rspur.com`
+2. Password: use the current demo password provided by Jake/Kim (default was `sample123` unless changed)
 
 Check health endpoint:
 
@@ -253,7 +257,7 @@ gcloud run services logs read "$SERVICE_NAME" --region "$REGION" --limit=100
 
 1. Cloud Run URL opens
 2. `/api/health` returns JSON
-3. Login page loads
+3. Login succeeds for `jake@rspur.com`
 4. Domain mapping added
 5. DNS records added
 6. Final status screenshot sent to Jake/Kim
