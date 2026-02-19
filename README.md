@@ -15,6 +15,7 @@ This repository now tracks **two versions** of the portal work:
 
 ## Supporting docs
 - `Portal Build/` contains PRDs and master plan docs
+- `DECISIONS.md` is the locked source of truth for core platform decisions
 
 ## Notes
 - APIs are intentionally **not integrated** in `sampleportal` yet.
