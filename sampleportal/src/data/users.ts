@@ -3,6 +3,30 @@ import type { AccessLevel, ModuleAccess, ModuleKey, UserWithAccess } from "@/typ
 
 const moduleKeys = moduleRegistry.map((module) => module.key);
 
+export const superAdminOnlyModules: ModuleKey[] = [
+  "health-tracker",
+  "house-manual",
+  "family-manual",
+];
+
+export function canGrantModuleAccess(
+  role: UserWithAccess["role"],
+  module: ModuleKey,
+  accessLevel: AccessLevel
+): boolean {
+  if (role !== "SUPER_ADMIN" && module === "admin" && accessLevel !== "NONE") {
+    return false;
+  }
+  if (
+    role !== "SUPER_ADMIN" &&
+    superAdminOnlyModules.includes(module) &&
+    accessLevel !== "NONE"
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function buildAccess(defaultLevel: AccessLevel, overrides: Partial<Record<ModuleKey, AccessLevel>> = {}): ModuleAccess {
   const access: ModuleAccess = {};
   for (const key of moduleKeys) {
@@ -90,6 +114,7 @@ export function updateUserAccess(
 ): UserWithAccess | null {
   const user = sampleUsers.find((item) => item.id === userId);
   if (!user) return null;
+  if (!canGrantModuleAccess(user.role, module, accessLevel)) return null;
   user.moduleAccess[module] = accessLevel;
   return user;
 }

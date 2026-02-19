@@ -13,6 +13,20 @@ const initialAnnouncements = [
   { id: "a3", title: "VPS Prep", detail: "Deploy to sampleportal.rspur.com after QA pass.", read: true },
 ];
 
+const refinedNext = new Set([
+  "kpi",
+  "mission-control",
+  "tasks",
+  "wiki",
+  "deal-analyzer",
+  "flip-forecasting-dashboard",
+  "automation-engine",
+]);
+
+function moduleStatus(key: string): "Demo Live" | "Refine Next" {
+  return refinedNext.has(key) ? "Refine Next" : "Demo Live";
+}
+
 export function DashboardClient({
   userName,
   canEdit,
@@ -91,6 +105,7 @@ export function DashboardClient({
                 <tr>
                   <th>Module</th>
                   <th>Description</th>
+                  <th>Status</th>
                   <th>Open</th>
                 </tr>
               </thead>
@@ -99,6 +114,11 @@ export function DashboardClient({
                   <tr key={module.key}>
                     <td>{module.label}</td>
                     <td>{module.description}</td>
+                    <td>
+                      <span className={`chip ${moduleStatus(module.key) === "Demo Live" ? "auto" : "warn"}`}>
+                        {moduleStatus(module.key)}
+                      </span>
+                    </td>
                     <td>
                       <Link className="btn" href={module.path}>
                         Open

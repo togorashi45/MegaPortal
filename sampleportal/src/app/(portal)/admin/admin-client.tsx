@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { demoModuleConfigs } from "@/data/module-demos";
 import { moduleRegistry } from "@/data/modules";
+import { superAdminOnlyModules } from "@/data/users";
 import { ModuleHeader } from "@/components/module-header";
 import { StatCard } from "@/components/stat-card";
-import type { AccessLevel, Role } from "@/types/portal";
+import type { AccessLevel, ModuleKey, Role } from "@/types/portal";
 
 type UserRow = {
   id: string;
@@ -15,11 +17,29 @@ type UserRow = {
 };
 
 const levels: AccessLevel[] = ["NONE", "VIEW", "EDIT", "ADMIN"];
+const hardLockedModules: ModuleKey[] = ["admin", ...superAdminOnlyModules];
+const extraStorageKeys = [
+  "sampleportal.dashboard.focus",
+  "sampleportal.dashboard.announcements",
+  "sampleportal.gps.state",
+  "sampleportal.tasks.state",
+  "sampleportal.training.state",
+  "sampleportal.calendar.state",
+  "sampleportal.assets.state",
+];
+
+function canAssignModule(role: Role, module: ModuleKey): boolean {
+  if (role !== "SUPER_ADMIN" && hardLockedModules.includes(module)) {
+    return false;
+  }
+  return true;
+}
 
 export function AdminClient() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [demoOpsMessage, setDemoOpsMessage] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("sample123");
@@ -67,6 +87,7 @@ export function AdminClient() {
   }
 
   async function changeAccess(userId: string, module: string, accessLevel: AccessLevel): Promise<void> {
+    setError("");
     const response = await fetch("/api/admin/access", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -74,7 +95,8 @@ export function AdminClient() {
     });
 
     if (!response.ok) {
-      setError("Failed to update module access.");
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      setError(payload.error || "Failed to update module access.");
       return;
     }
 
@@ -85,6 +107,50 @@ export function AdminClient() {
           : user
       )
     );
+  }
+
+  function clearModuleDemoData(): void {
+    for (const config of Object.values(demoModuleConfigs)) {
+      window.localStorage.removeItem(config.storageKey);
+    }
+    for (const key of extraStorageKeys) {
+      window.localStorage.removeItem(key);
+    }
+    setDemoOpsMessage("Cleared saved module demo state. Refresh pages to reload seeded data.");
+  }
+
+  function exportDemoSnapshot(): void {
+    const snapshot: Record<string, unknown> = {
+      generatedAt: new Date().toISOString(),
+      users,
+      modules: {},
+    };
+
+    for (const [moduleKey, config] of Object.entries(demoModuleConfigs)) {
+      const raw = window.localStorage.getItem(config.storageKey);
+      let rows: unknown = config.seedRows;
+      if (raw) {
+        try {
+          rows = JSON.parse(raw) as unknown;
+        } catch {
+          rows = config.seedRows;
+        }
+      }
+      (snapshot.modules as Record<string, unknown>)[moduleKey] = rows;
+    }
+
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], {
+      type: "application/json;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `sampleportal-snapshot-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setDemoOpsMessage("Downloaded demo snapshot JSON.");
   }
 
   return (
@@ -107,6 +173,20 @@ export function AdminClient() {
         <StatCard title="ADMIN" value={String(users.filter((user) => user.role === "ADMIN").length)} note="Elevated access" />
         <StatCard title="MEMBER" value={String(users.filter((user) => user.role === "MEMBER").length)} note="Standard users" />
       </section>
+
+      <article className="panel form-grid">
+        <h4>Demo Operations</h4>
+        <p className="muted">Controls for preparing clean walkthrough runs and backups.</p>
+        <div className="control-row">
+          <button className="btn" type="button" onClick={clearModuleDemoData}>
+            Clear Saved Module State
+          </button>
+          <button className="btn" type="button" onClick={exportDemoSnapshot}>
+            Export Demo Snapshot
+          </button>
+        </div>
+        {demoOpsMessage ? <p className="muted">{demoOpsMessage}</p> : null}
+      </article>
 
       <section className="split-2">
         <article className="panel form-grid">
@@ -172,7 +252,10 @@ export function AdminClient() {
                     <td key={`${user.id}-${module.key}`}>
                       <select
                         value={user.moduleAccess[module.key] || "NONE"}
-                        disabled={user.role === "SUPER_ADMIN"}
+                        disabled={
+                          user.role === "SUPER_ADMIN" ||
+                          !canAssignModule(user.role, module.key)
+                        }
                         onChange={(event) =>
                           void changeAccess(user.id, module.key, event.target.value as AccessLevel)
                         }

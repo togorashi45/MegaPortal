@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { updateUserAccess } from "@/data/users";
+import { canGrantModuleAccess, findUserById, updateUserAccess } from "@/data/users";
 import { getSessionUser } from "@/lib/session";
 import type { AccessLevel, ModuleKey } from "@/types/portal";
 
@@ -21,9 +21,21 @@ export async function PATCH(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
+  const targetUser = findUserById(body.userId);
+  if (!targetUser) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  if (!canGrantModuleAccess(targetUser.role, body.module, body.accessLevel)) {
+    return NextResponse.json(
+      { error: "This module is restricted for the selected user role." },
+      { status: 400 }
+    );
+  }
+
   const updated = updateUserAccess(body.userId, body.module, body.accessLevel);
   if (!updated) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return NextResponse.json({ error: "Unable to update module access." }, { status: 400 });
   }
 
   return NextResponse.json({ user: updated });

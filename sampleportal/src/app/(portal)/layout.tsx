@@ -14,6 +14,11 @@ export default async function PortalLayout({
   const visibleModules = moduleRegistry.filter((module) =>
     canAccess(user, module.key, "VIEW")
   );
+  const today = new Date().toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 
   return (
     <div className="portal-shell">
@@ -26,6 +31,7 @@ export default async function PortalLayout({
             <p className="muted">
               Sample data mode: full interactions enabled, no live API integrations.
             </p>
+            <p className="muted">Build phase: Fast Demo Complete Pass • {today}</p>
           </div>
           <div className="top-actions">
             <span className="chip auto">{user.name}</span>

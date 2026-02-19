@@ -163,6 +163,20 @@ button {
   overflow: auto;
 }
 
+.nav-section {
+  display: grid;
+  gap: 6px;
+}
+
+.nav-section h4 {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: color-mix(in srgb, var(--ink) 72%, white 28%);
+  margin: 4px 0 0;
+  padding: 0 4px;
+}
+
 .nav-item {
   display: grid;
   gap: 3px;
