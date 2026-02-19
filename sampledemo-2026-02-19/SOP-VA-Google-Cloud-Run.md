@@ -6,6 +6,45 @@ Target domain: `sampleportal.rspur.com`
 
 This SOP is written for someone with no prior Cloud Run experience.
 
+## 0) Quickstart (copy/paste only)
+
+If you want the fastest path, run this in Cloud Shell:
+
+```bash
+# Set known values
+PROJECT_NUMBER="427525652777"
+REGION="us-central1"
+SERVICE_NAME="sampleportal"
+APP_DOMAIN="sampleportal.rspur.com"
+
+# Resolve PROJECT_ID from PROJECT_NUMBER
+PROJECT_ID="$(gcloud projects list --filter="PROJECT_NUMBER=${PROJECT_NUMBER}" --format='value(PROJECT_ID)')"
+echo "Using PROJECT_ID=${PROJECT_ID}"
+
+# Stop if PROJECT_ID was not found
+if [ -z "${PROJECT_ID}" ]; then
+  echo "Could not find PROJECT_ID for project number ${PROJECT_NUMBER}"
+  exit 1
+fi
+
+# Clone code
+git clone https://github.com/togorashi45/MegaPortal.git
+cd MegaPortal/sampledemo-2026-02-19
+
+# Generate secret
+AUTH_SECRET="$(openssl rand -base64 32)"
+
+# Deploy
+chmod +x scripts/deploy-cloud-run.sh
+GCP_PROJECT_ID="${PROJECT_ID}" AUTH_SECRET="${AUTH_SECRET}" NEXT_PUBLIC_APP_DOMAIN="${APP_DOMAIN}" \
+./scripts/deploy-cloud-run.sh --project "${PROJECT_ID}" --region "${REGION}" --service "${SERVICE_NAME}" --domain "${APP_DOMAIN}" --auth-secret "${AUTH_SECRET}"
+
+# Show service URL
+gcloud run services describe "${SERVICE_NAME}" --region "${REGION}" --format='value(status.url)'
+```
+
+Then continue from section 10 for custom domain mapping.
+
 ## 1) What this SOP does
 
 1. Deploys the sample portal to Google Cloud Run.
@@ -70,6 +109,7 @@ gcloud projects list --filter="PROJECT_NUMBER=427525652777"
 ```
 
 Copy the value in the `PROJECT_ID` column and use that in commands below.
+Do not use the numeric project number in deploy commands.
 
 ## 6) Get the code into Cloud Shell
 
@@ -81,6 +121,13 @@ cd MegaPortal/sampledemo-2026-02-19
 ```
 
 If repo is private and prompts login, use GitHub sign-in in browser first.
+
+Set active project:
+
+```bash
+gcloud config set project "$PROJECT_ID"
+gcloud auth list
+```
 
 ## 7) Set required variables
 
@@ -122,6 +169,12 @@ NEXT_PUBLIC_APP_DOMAIN="$APP_DOMAIN" \
 
 Wait until terminal shows `Deploy complete.`
 
+Optional: confirm service is visible:
+
+```bash
+gcloud run services list --region "$REGION"
+```
+
 ## 9) Verify app is working
 
 Get URL:
@@ -142,6 +195,7 @@ curl -s "$SERVICE_URL/api/health"
 ```
 
 Expected: JSON response.
+If JSON returns, deployment is successful.
 
 ## 10) Map custom domain (`sampleportal.rspur.com`)
 
