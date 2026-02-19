@@ -54,6 +54,23 @@ For domain mapping, one of these is also needed:
 
 Cloud Shell already has `gcloud`, `git`, `node`, and `npm`.
 
+## 5.1) Confirm project ID (important)
+
+You were given this project number: `427525652777`.
+
+Google Cloud uses two values:
+
+1. **Project number** (numeric): `427525652777`
+2. **Project ID** (string): often looks like `my-project-123456`
+
+Deploy commands should use the **Project ID**. To find it:
+
+```bash
+gcloud projects list --filter="PROJECT_NUMBER=427525652777"
+```
+
+Copy the value in the `PROJECT_ID` column and use that in commands below.
+
 ## 6) Get the code into Cloud Shell
 
 In Cloud Shell terminal:
@@ -70,7 +87,7 @@ If repo is private and prompts login, use GitHub sign-in in browser first.
 Run these commands, replacing values:
 
 ```bash
-export PROJECT_ID="YOUR_PROJECT_ID"
+export PROJECT_ID="YOUR_PROJECT_ID_FROM_PROJECTS_LIST"
 export REGION="us-central1"
 export SERVICE_NAME="sampleportal"
 export APP_DOMAIN="sampleportal.rspur.com"
