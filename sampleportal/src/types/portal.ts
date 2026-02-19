@@ -13,7 +13,24 @@ export type ModuleKey =
   | "calendar"
   | "training"
   | "hr"
-  | "admin";
+  | "admin"
+  | "decisions"
+  | "deal-analyzer"
+  | "comp-tracker"
+  | "contractor-directory"
+  | "appfolio-dashboard"
+  | "tax-insurance"
+  | "note-tracker"
+  | "flip-tracker"
+  | "cashflow"
+  | "rehab-scope"
+  | "lending-capital-tracker"
+  | "document-vault"
+  | "health-tracker"
+  | "house-manual"
+  | "family-manual"
+  | "flip-forecasting-dashboard"
+  | "automation-engine";
 
 export interface User {
   id: string;

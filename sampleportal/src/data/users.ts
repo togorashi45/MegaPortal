@@ -1,46 +1,40 @@
-import type { ModuleAccess, ModuleKey, UserWithAccess } from "@/types/portal";
+import { moduleRegistry } from "@/data/modules";
+import type { AccessLevel, ModuleAccess, ModuleKey, UserWithAccess } from "@/types/portal";
 
-const allEdit: ModuleAccess = {
-  dashboard: "ADMIN",
-  "mission-control": "ADMIN",
-  kpi: "ADMIN",
-  gps: "ADMIN",
-  tasks: "ADMIN",
-  wiki: "ADMIN",
-  assets: "ADMIN",
-  calendar: "ADMIN",
-  training: "ADMIN",
-  hr: "ADMIN",
-  admin: "ADMIN",
-};
+const moduleKeys = moduleRegistry.map((module) => module.key);
 
-const editorAccess: ModuleAccess = {
-  dashboard: "VIEW",
-  "mission-control": "EDIT",
-  kpi: "EDIT",
-  gps: "EDIT",
-  tasks: "EDIT",
-  wiki: "EDIT",
+function buildAccess(defaultLevel: AccessLevel, overrides: Partial<Record<ModuleKey, AccessLevel>> = {}): ModuleAccess {
+  const access: ModuleAccess = {};
+  for (const key of moduleKeys) {
+    access[key] = defaultLevel;
+  }
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value) access[key] = value;
+  }
+  return access;
+}
+
+const allEdit = buildAccess("ADMIN");
+
+const editorAccess = buildAccess("EDIT", {
   assets: "NONE",
-  calendar: "EDIT",
-  training: "EDIT",
-  hr: "VIEW",
   admin: "NONE",
-};
+  "health-tracker": "NONE",
+  "house-manual": "NONE",
+  "family-manual": "NONE",
+});
 
-const viewerAccess: ModuleAccess = {
-  dashboard: "VIEW",
-  "mission-control": "VIEW",
-  kpi: "VIEW",
-  gps: "VIEW",
-  tasks: "VIEW",
-  wiki: "VIEW",
+const viewerAccess = buildAccess("VIEW", {
   assets: "NONE",
-  calendar: "VIEW",
-  training: "VIEW",
-  hr: "VIEW",
   admin: "NONE",
-};
+  "health-tracker": "NONE",
+  "house-manual": "NONE",
+  "family-manual": "NONE",
+  "automation-engine": "NONE",
+  "appfolio-dashboard": "NONE",
+  "tax-insurance": "NONE",
+  "lending-capital-tracker": "NONE",
+});
 
 export const sampleUsers: UserWithAccess[] = [
   {
@@ -92,7 +86,7 @@ export function listUsers(): UserWithAccess[] {
 export function updateUserAccess(
   userId: string,
   module: ModuleKey,
-  accessLevel: "NONE" | "VIEW" | "EDIT" | "ADMIN"
+  accessLevel: AccessLevel
 ): UserWithAccess | null {
   const user = sampleUsers.find((item) => item.id === userId);
   if (!user) return null;
@@ -107,19 +101,28 @@ export function createDemoUser(input: {
   role: "SUPER_ADMIN" | "ADMIN" | "MEMBER";
 }): UserWithAccess {
   const id = `u_${Math.random().toString(36).slice(2, 9)}`;
-  const defaultAccess: ModuleAccess = {
-    dashboard: "VIEW",
-    "mission-control": "VIEW",
-    kpi: "VIEW",
-    gps: "VIEW",
-    tasks: "VIEW",
-    wiki: "VIEW",
-    assets: input.role === "SUPER_ADMIN" ? "ADMIN" : "NONE",
-    calendar: "VIEW",
-    training: "VIEW",
-    hr: "VIEW",
-    admin: input.role === "SUPER_ADMIN" ? "ADMIN" : "NONE",
-  };
+  const moduleAccess =
+    input.role === "SUPER_ADMIN"
+      ? buildAccess("ADMIN")
+      : input.role === "ADMIN"
+        ? buildAccess("EDIT", {
+            assets: "NONE",
+            admin: "NONE",
+            "health-tracker": "NONE",
+            "house-manual": "NONE",
+            "family-manual": "NONE",
+          })
+        : buildAccess("VIEW", {
+            assets: "NONE",
+            admin: "NONE",
+            "health-tracker": "NONE",
+            "house-manual": "NONE",
+            "family-manual": "NONE",
+            "automation-engine": "NONE",
+            "appfolio-dashboard": "NONE",
+            "tax-insurance": "NONE",
+            "lending-capital-tracker": "NONE",
+          });
 
   const user: UserWithAccess = {
     id,
@@ -127,7 +130,7 @@ export function createDemoUser(input: {
     email: input.email,
     password: input.password,
     role: input.role,
-    moduleAccess: defaultAccess,
+    moduleAccess,
   };
 
   sampleUsers.push(user);
