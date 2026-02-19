@@ -1,28 +1,78 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ModuleHeader } from "@/components/module-header";
 import { StatCard } from "@/components/stat-card";
+import { cloneSeed, loadDemoState, saveDemoState } from "@/lib/demo-storage";
+
+interface StandardRow {
+  text: string;
+  status: string;
+}
+
+interface GpsState {
+  goal: string;
+  priorities: string[];
+  standards: StandardRow[];
+}
+
+const STORAGE_KEY = "sampleportal.gps.state";
+const seedGoal = "Close 120 high-quality deals in 2026 with >35% gross margin.";
+const seedPriorities = [
+  "Scale lead quality while controlling CPL",
+  "Increase sales conversion rate to 18%+",
+  "Tighten operational SOP adoption across team",
+];
+const seedStandards: StandardRow[] = [
+  { text: "Daily KPI update by 9:00 AM", status: "ON_TRACK" },
+  { text: "Lead follow-up within 24 hours", status: "ON_TRACK" },
+  { text: "Weekly team GPS review", status: "NEEDS_ATTENTION" },
+];
+
+const initialState: GpsState = {
+  goal: seedGoal,
+  priorities: seedPriorities,
+  standards: seedStandards,
+};
 
 export function GpsClient({ canEdit, owner }: { canEdit: boolean; owner: string }) {
-  const [goal, setGoal] = useState("Close 120 high-quality deals in 2026 with >35% gross margin.");
-  const [priorities, setPriorities] = useState([
-    "Scale lead quality while controlling CPL",
-    "Increase sales conversion rate to 18%+",
-    "Tighten operational SOP adoption across team",
-  ]);
-  const [standards, setStandards] = useState([
-    { text: "Daily KPI update by 9:00 AM", status: "ON_TRACK" },
-    { text: "Lead follow-up within 24 hours", status: "ON_TRACK" },
-    { text: "Weekly team GPS review", status: "NEEDS_ATTENTION" },
-  ]);
+  const [goal, setGoal] = useState(seedGoal);
+  const [priorities, setPriorities] = useState<string[]>(cloneSeed(seedPriorities));
+  const [standards, setStandards] = useState<StandardRow[]>(cloneSeed(seedStandards));
   const [newPriority, setNewPriority] = useState("");
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const saved = loadDemoState<GpsState>(STORAGE_KEY, initialState);
+    setGoal(saved.goal);
+    setPriorities(saved.priorities);
+    setStandards(saved.standards);
+    setLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    saveDemoState<GpsState>(STORAGE_KEY, { goal, priorities, standards });
+  }, [goal, priorities, standards, loaded]);
+
+  function resetSampleData(): void {
+    if (!canEdit) return;
+    setGoal(seedGoal);
+    setPriorities(cloneSeed(seedPriorities));
+    setStandards(cloneSeed(seedStandards));
+    setNewPriority("");
+  }
 
   return (
     <>
       <ModuleHeader
         title="GPS Framework"
         description="Goal, Priorities, Standards alignment module."
+        right={
+          <button className="btn" type="button" disabled={!canEdit} onClick={resetSampleData}>
+            Reset Sample Data
+          </button>
+        }
       />
 
       <section className="card-grid">

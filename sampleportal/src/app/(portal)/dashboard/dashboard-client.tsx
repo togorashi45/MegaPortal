@@ -8,23 +8,13 @@ import { ModuleHeader } from "@/components/module-header";
 import { StatCard } from "@/components/stat-card";
 
 const initialAnnouncements = [
-  { id: "a1", title: "Demo Build Sprint", detail: "All modules are now running in sample mode.", read: false },
+  { id: "a1", title: "Demo Build Sprint", detail: "All modules are demo-ready with persistent sample state.", read: false },
   { id: "a2", title: "KPI Walkthrough", detail: "Record product walkthrough content from KPI and GPS first.", read: false },
   { id: "a3", title: "VPS Prep", detail: "Deploy to sampleportal.rspur.com after QA pass.", read: true },
 ];
 
-const refinedNext = new Set([
-  "kpi",
-  "mission-control",
-  "tasks",
-  "wiki",
-  "deal-analyzer",
-  "flip-forecasting-dashboard",
-  "automation-engine",
-]);
-
-function moduleStatus(key: string): "Demo Live" | "Refine Next" {
-  return refinedNext.has(key) ? "Refine Next" : "Demo Live";
+function moduleStatus(): "Demo Live" {
+  return "Demo Live";
 }
 
 export function DashboardClient({
@@ -37,7 +27,7 @@ export function DashboardClient({
   const searchParams = useSearchParams();
   const blocked = searchParams.get("blocked") === "1";
   const [announcements, setAnnouncements] = useState(initialAnnouncements);
-  const [focus, setFocus] = useState("Finalize KPI polish and walkthrough script.");
+  const [focus, setFocus] = useState("Run full module walkthrough and capture operator feedback.");
   const [loaded, setLoaded] = useState(false);
 
   const unread = useMemo(
@@ -115,8 +105,8 @@ export function DashboardClient({
                     <td>{module.label}</td>
                     <td>{module.description}</td>
                     <td>
-                      <span className={`chip ${moduleStatus(module.key) === "Demo Live" ? "auto" : "warn"}`}>
-                        {moduleStatus(module.key)}
+                      <span className="chip auto">
+                        {moduleStatus()}
                       </span>
                     </td>
                     <td>

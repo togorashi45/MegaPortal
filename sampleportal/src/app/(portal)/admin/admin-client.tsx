@@ -18,15 +18,6 @@ type UserRow = {
 
 const levels: AccessLevel[] = ["NONE", "VIEW", "EDIT", "ADMIN"];
 const hardLockedModules: ModuleKey[] = ["admin", ...superAdminOnlyModules];
-const extraStorageKeys = [
-  "sampleportal.dashboard.focus",
-  "sampleportal.dashboard.announcements",
-  "sampleportal.gps.state",
-  "sampleportal.tasks.state",
-  "sampleportal.training.state",
-  "sampleportal.calendar.state",
-  "sampleportal.assets.state",
-];
 
 function canAssignModule(role: Role, module: ModuleKey): boolean {
   if (role !== "SUPER_ADMIN" && hardLockedModules.includes(module)) {
@@ -110,13 +101,18 @@ export function AdminClient() {
   }
 
   function clearModuleDemoData(): void {
-    for (const config of Object.values(demoModuleConfigs)) {
-      window.localStorage.removeItem(config.storageKey);
-    }
-    for (const key of extraStorageKeys) {
+    let removed = 0;
+    for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.localStorage.key(index);
+      if (!key || !key.startsWith("sampleportal.")) continue;
       window.localStorage.removeItem(key);
+      removed += 1;
     }
-    setDemoOpsMessage("Cleared saved module demo state. Refresh pages to reload seeded data.");
+    setDemoOpsMessage(
+      removed > 0
+        ? `Cleared ${removed} saved demo keys. Refresh pages to reload seeded data.`
+        : "No saved demo keys found."
+    );
   }
 
   function exportDemoSnapshot(): void {
@@ -124,6 +120,7 @@ export function AdminClient() {
       generatedAt: new Date().toISOString(),
       users,
       modules: {},
+      localState: {},
     };
 
     for (const [moduleKey, config] of Object.entries(demoModuleConfigs)) {
@@ -138,6 +135,20 @@ export function AdminClient() {
       }
       (snapshot.modules as Record<string, unknown>)[moduleKey] = rows;
     }
+
+    const localState: Record<string, unknown> = {};
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (!key || !key.startsWith("sampleportal.")) continue;
+      const raw = window.localStorage.getItem(key);
+      if (raw === null) continue;
+      try {
+        localState[key] = JSON.parse(raw) as unknown;
+      } catch {
+        localState[key] = raw;
+      }
+    }
+    snapshot.localState = localState;
 
     const blob = new Blob([JSON.stringify(snapshot, null, 2)], {
       type: "application/json;charset=utf-8",

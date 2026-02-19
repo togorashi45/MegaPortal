@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ModuleHeader } from "@/components/module-header";
 import { StatCard } from "@/components/stat-card";
+import { cloneSeed, loadDemoState, saveDemoState } from "@/lib/demo-storage";
 
 interface TaskCard {
   id: string;
@@ -43,9 +44,23 @@ const seedColumns: Column[] = [
   },
 ];
 
+const STORAGE_KEY = "sampleportal.tasks.state";
+
 export function TasksClient({ canEdit, currentUser }: { canEdit: boolean; currentUser: string }) {
-  const [columns, setColumns] = useState(seedColumns);
+  const [columns, setColumns] = useState<Column[]>(cloneSeed(seedColumns));
   const [newTitle, setNewTitle] = useState("");
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const saved = loadDemoState<Column[]>(STORAGE_KEY, seedColumns);
+    setColumns(saved);
+    setLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    saveDemoState(STORAGE_KEY, columns);
+  }, [columns, loaded]);
 
   const totalCards = useMemo(
     () => columns.reduce((acc, column) => acc + column.cards.length, 0),
@@ -100,6 +115,12 @@ export function TasksClient({ canEdit, currentUser }: { canEdit: boolean; curren
     setNewTitle("");
   }
 
+  function resetSampleData(): void {
+    if (!canEdit) return;
+    setColumns(cloneSeed(seedColumns));
+    setNewTitle("");
+  }
+
   return (
     <>
       <ModuleHeader
@@ -113,6 +134,9 @@ export function TasksClient({ canEdit, currentUser }: { canEdit: boolean; curren
               disabled={!canEdit}
               onChange={(event) => setNewTitle(event.target.value)}
             />
+            <button className="btn" type="button" disabled={!canEdit} onClick={resetSampleData}>
+              Reset
+            </button>
             <button className="btn" type="button" disabled={!canEdit} onClick={addCard}>
               Add Task
             </button>

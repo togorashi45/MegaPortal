@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ModuleHeader } from "@/components/module-header";
 import { StatCard } from "@/components/stat-card";
+import { cloneSeed, loadDemoState, saveDemoState } from "@/lib/demo-storage";
 
 interface LinkItem {
   id: string;
@@ -29,14 +30,43 @@ const seedLinks: LinkItem[] = [
   },
 ];
 
+const STORAGE_KEY = "sampleportal.hr.state";
+
 export function HrClient({ canEdit }: { canEdit: boolean }) {
-  const [links, setLinks] = useState(seedLinks);
+  const [links, setLinks] = useState<LinkItem[]>(cloneSeed(seedLinks));
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("https://");
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const saved = loadDemoState<LinkItem[]>(STORAGE_KEY, seedLinks);
+    setLinks(saved);
+    setLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    saveDemoState(STORAGE_KEY, links);
+  }, [links, loaded]);
+
+  function resetSampleData(): void {
+    if (!canEdit) return;
+    setLinks(cloneSeed(seedLinks));
+    setTitle("");
+    setUrl("https://");
+  }
 
   return (
     <>
-      <ModuleHeader title="HR Links" description="Fast access to team HR and operations tools." />
+      <ModuleHeader
+        title="HR Links"
+        description="Fast access to team HR and operations tools."
+        right={
+          <button className="btn" type="button" disabled={!canEdit} onClick={resetSampleData}>
+            Reset Sample Data
+          </button>
+        }
+      />
 
       <section className="card-grid">
         <StatCard title="Total Links" value={String(links.length)} note="Available tools" />

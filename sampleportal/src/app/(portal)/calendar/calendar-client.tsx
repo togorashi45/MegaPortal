@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ModuleHeader } from "@/components/module-header";
 import { StatCard } from "@/components/stat-card";
+import { cloneSeed, loadDemoState, saveDemoState } from "@/lib/demo-storage";
 
 interface EventItem {
   id: string;
@@ -19,17 +20,52 @@ const initialEvents: EventItem[] = [
   { id: "e3", title: "New Hire Training", category: "Training", start: "2026-02-22 13:00", end: "2026-02-22 14:00", owner: "Ava" },
 ];
 
+const STORAGE_KEY = "sampleportal.calendar.state";
+
+interface CalendarState {
+  events: EventItem[];
+  view: string;
+}
+
+const initialState: CalendarState = {
+  events: initialEvents,
+  view: "Month",
+};
+
 export function CalendarClient({ canEdit, currentUser }: { canEdit: boolean; currentUser: string }) {
-  const [events, setEvents] = useState(initialEvents);
+  const [events, setEvents] = useState<EventItem[]>(cloneSeed(initialEvents));
   const [view, setView] = useState("Month");
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Meeting");
   const [start, setStart] = useState("2026-02-24 09:00");
   const [end, setEnd] = useState("2026-02-24 09:30");
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const saved = loadDemoState<CalendarState>(STORAGE_KEY, initialState);
+    setEvents(saved.events);
+    setView(saved.view);
+    setLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    saveDemoState<CalendarState>(STORAGE_KEY, { events, view });
+  }, [events, view, loaded]);
 
   const grouped = useMemo(() => {
     return [...events].sort((a, b) => a.start.localeCompare(b.start));
   }, [events]);
+
+  function resetSampleData(): void {
+    if (!canEdit) return;
+    setEvents(cloneSeed(initialEvents));
+    setView("Month");
+    setTitle("");
+    setCategory("Meeting");
+    setStart("2026-02-24 09:00");
+    setEnd("2026-02-24 09:30");
+  }
 
   return (
     <>
@@ -43,6 +79,9 @@ export function CalendarClient({ canEdit, currentUser }: { canEdit: boolean; cur
               <option>Week</option>
               <option>Day</option>
             </select>
+            <button className="btn" type="button" disabled={!canEdit} onClick={resetSampleData}>
+              Reset
+            </button>
             <span className="chip auto">{view} view</span>
           </>
         }

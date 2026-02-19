@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ModuleHeader } from "@/components/module-header";
 import { StatCard } from "@/components/stat-card";
+import { cloneSeed, loadDemoState, saveDemoState } from "@/lib/demo-storage";
 
 interface WikiPage {
   id: string;
@@ -36,10 +37,37 @@ const initialPages: WikiPage[] = [
   },
 ];
 
+const STORAGE_KEY = "sampleportal.wiki.state";
+
+interface WikiState {
+  pages: WikiPage[];
+  selected: string;
+}
+
 export function WikiClient({ canEdit }: { canEdit: boolean }) {
-  const [pages, setPages] = useState(initialPages);
+  const [pages, setPages] = useState<WikiPage[]>(cloneSeed(initialPages));
   const [selected, setSelected] = useState(initialPages[0]?.id || "");
   const [query, setQuery] = useState("");
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const saved = loadDemoState<WikiState>(STORAGE_KEY, {
+      pages: initialPages,
+      selected: initialPages[0]?.id || "",
+    });
+    setPages(saved.pages);
+    setSelected(saved.selected || saved.pages[0]?.id || "");
+    setLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    const selectedExists = pages.some((page) => page.id === selected);
+    saveDemoState<WikiState>(STORAGE_KEY, {
+      pages,
+      selected: selectedExists ? selected : pages[0]?.id || "",
+    });
+  }, [pages, selected, loaded]);
 
   const selectedPage = pages.find((page) => page.id === selected);
 
@@ -67,6 +95,13 @@ export function WikiClient({ canEdit }: { canEdit: boolean }) {
     setSelected(id);
   }
 
+  function resetSampleData(): void {
+    if (!canEdit) return;
+    setPages(cloneSeed(initialPages));
+    setSelected(initialPages[0]?.id || "");
+    setQuery("");
+  }
+
   return (
     <>
       <ModuleHeader
@@ -79,6 +114,9 @@ export function WikiClient({ canEdit }: { canEdit: boolean }) {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
+            <button className="btn" type="button" disabled={!canEdit} onClick={resetSampleData}>
+              Reset
+            </button>
             <button className="btn" type="button" disabled={!canEdit} onClick={addPage}>
               New Page
             </button>

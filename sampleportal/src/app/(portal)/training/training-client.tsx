@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ModuleHeader } from "@/components/module-header";
 import { StatCard } from "@/components/stat-card";
+import { cloneSeed, loadDemoState, saveDemoState } from "@/lib/demo-storage";
 
 interface TrainingItem {
   id: string;
@@ -20,20 +21,45 @@ const seedItems: TrainingItem[] = [
   { id: "tr3", title: "Content Repurposing Playbook", category: "Marketing", type: "LINK", url: "https://example.com", required: false, completedBy: [] },
 ];
 
+const STORAGE_KEY = "sampleportal.training.state";
+
 export function TrainingClient({ canEdit, userName }: { canEdit: boolean; userName: string }) {
-  const [items, setItems] = useState(seedItems);
+  const [items, setItems] = useState<TrainingItem[]>(cloneSeed(seedItems));
   const [title, setTitle] = useState("");
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    const saved = loadDemoState<TrainingItem[]>(STORAGE_KEY, seedItems);
+    setItems(saved);
+    setLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!loaded) return;
+    saveDemoState(STORAGE_KEY, items);
+  }, [items, loaded]);
 
   const completed = useMemo(
     () => items.filter((item) => item.completedBy.includes(userName)).length,
     [items, userName]
   );
 
+  function resetSampleData(): void {
+    if (!canEdit) return;
+    setItems(cloneSeed(seedItems));
+    setTitle("");
+  }
+
   return (
     <>
       <ModuleHeader
         title="Training Hub"
         description="Centralized training library with completion tracking."
+        right={
+          <button className="btn" type="button" disabled={!canEdit} onClick={resetSampleData}>
+            Reset Sample Data
+          </button>
+        }
       />
 
       <section className="card-grid">
