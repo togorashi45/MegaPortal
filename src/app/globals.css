@@ -3,18 +3,34 @@
 @tailwind utilities;
 
 :root {
-  --background: #1a1a1a;
-  --foreground: #ededed;
+  --background: #0F1117;
+  --foreground: #F0F0F0;
+  
+  --terracotta: #C65E2C;
+  --dark-green: #36544F;
+  --gold: #EBA937;
+  --beige: #D6C6B9;
+  
+  --bg-primary: #0F1117;
+  --bg-surface: #1A1D26;
+  --bg-elevated: #242830;
+  --border: #2A2E38;
+  
+  --text-primary: #F0F0F0;
+  --text-secondary: #8B8FA3;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  font-feature-settings: 'cv11';
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  .glass-card {
+    @apply bg-[#1A1D26]/80 backdrop-blur-md border border-[#2A2E38] shadow-lg;
   }
 }
