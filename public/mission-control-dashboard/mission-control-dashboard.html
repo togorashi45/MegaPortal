@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mission Control — Budget Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--accent:#C65E2C;--muted:#94a3b8;--glass:rgba(255,255,255,0.03);}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,Roboto,-apple-system,Segoe UI,Arial}
+    body{background:linear-gradient(180deg,#071019 0%, #081422 100%);color:#e6eef8;padding:18px}
+    .container{display:grid;grid-template-columns:1fr 420px;gap:18px;max-width:1200px;margin:0 auto}
+    .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
+    h1{margin:0 0 8px;font-size:20px;color:var(--accent)}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    .controls input,.controls select{background:var(--glass);border:1px solid rgba(255,255,255,0.04);color:#e6eef8;padding:8px;border-radius:8px}
+    #table{width:100%}
+    .kpis{display:flex;gap:12px;margin-bottom:12px}
+    .kpi{flex:1;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);padding:10px;border-radius:10px;text-align:center}
+    .kpi .value{font-size:18px;font-weight:700}
+    .chart-tabs{display:flex;gap:8px;margin-bottom:8px}
+    .tab{padding:6px 10px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);cursor:pointer}
+    .tab.active{background:linear-gradient(90deg, rgba(198,94,44,0.15), rgba(235,169,55,0.06));border-color:rgba(198,94,44,0.3)}
+    footer{margin-top:12px;color:var(--muted);font-size:13px;text-align:center}
+    .small{font-size:13px;color:var(--muted)}
+    .export-btn{background:var(--accent);border:none;color:white;padding:8px 12px;border-radius:8px;cursor:pointer}
+    @media(max-width:980px){.container{grid-template-columns:1fr;}.kpis{flex-direction:column}}
+  </style>
+  <!-- libs -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+</head>
+<body>
+  <div style="max-width:1200px;margin:0 auto;">
+    <div class="card" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <h1>Mission Control — Project Budget</h1>
+        <div class="small">Interactive budget dashboard. Edit spreadsheet file data.csv in the same folder to change inputs. Export CSV anytime.</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="fileInput" type="file" accept=".csv,.xlsx" />
+        <button class="export-btn" id="exportCsv">Export view CSV</button>
+      </div>
+    </div>
+
+    <div class="container">
+      <div>
+        <div class="card">
+          <div class="controls">
+            <input id="q" placeholder="Search..." style="flex:1" />
+            <select id="groupBy"><option value="">Group by</option></select>
+            <button id="dedupe">Toggle Dedupe</button>
+          </div>
+          <div class="kpis" id="kpis"></div>
+          <table id="table" class="display compact"></table>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <strong>Visuals</strong>
+            <div class="chart-tabs">
+              <div class="tab active" data-tab="times">Time series</div>
+              <div class="tab" data-tab="dist">Distribution</div>
+              <div class="tab" data-tab="top">Top groups</div>
+            </div>
+          </div>
+          <div id="chart" style="height:420px;"></div>
+          <footer>Tip: click legend items to toggle series. Use table selection to filter chart.</footer>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const csvPath = './data.csv'; // file in same folder
+    let rawData = [];
+    let table = null;
+    let dedupeOn = false;
+
+    function parseCSV(text){
+      return Papa.parse(text, {header:true,skipEmptyLines:true}).data;
+    }
+
+    function numberify(s){
+      if(s==null) return null;
+      let v = (''+s).replace(/[^0-9.\-]/g,'');
+      if(v==='') return null; return Number(v);
+    }
+
+    function detectColumns(data){
+      const cols = Object.keys(data[0]||{});
+      return cols;
+    }
+
+    function computeDerived(d){
+      // amount/price cleanup
+      for(const r of d){
+        for(const k of Object.keys(r)){
+          if(typeof r[k]==='string') r[k]=r[k].trim();
+        }
+        r._Amount = numberify(r.Amount||r.Price||r.AmountUSD||r.Cost);
+      }
+      return d;
+    }
+
+    function buildKPIs(d){
+      const total = d.reduce((s,r)=>s + (r._Amount||0),0);
+      const count = d.length;
+      const avg = count? (total/count):0;
+      document.getElementById('kpis').innerHTML = `
+        <div class="kpi"><div class="small">Items</div><div class="value">${count}</div></div>
+        <div class="kpi"><div class="small">Total</div><div class="value">$${total.toLocaleString()}</div></div>
+        <div class="kpi"><div class="small">Avg</div><div class="value">$${avg.toLocaleString(undefined,{maximumFractionDigits:0})}</div></div>
+      `;
+    }
+
+    function renderTable(d){
+      const cols = detectColumns(d);
+      const columns = cols.map(c=>({title:c,data:c}));
+      if(table) table.destroy();
+      $('#table').empty();
+      table = $('#table').DataTable({data:d,columns:columns,pageLength:10,dom:'ftip',deferRender:true});
+
+      $('#q').on('input',function(){table.search(this.value).draw();updateChartFromSelection();});
+
+      $('#table tbody').on('click','tr',function(){ $(this).toggleClass('selected'); updateChartFromSelection(); });
+    }
+
+    function updateChartFromSelection(){
+      const sel = table ? table.rows('.selected').data().toArray() : []; const data = sel.length?sel:table.rows({search:'applied'}).data().toArray();
+      drawTimeSeries(data);
+    }
+
+    function drawTimeSeries(d){
+      const byName = {};
+      for(const r of d){
+        const name = r.Item||r.Description||'Item';
+        if(!byName[name]) byName[name]=0; byName[name]+= (r._Amount||0);
+      }
+      const names = Object.keys(byName).slice(0,8);
+      const trace = [{x:names,y:names.map(n=>byName[n]),type:'bar',marker:{color:'#C65E2C'}}];
+      Plotly.newPlot('chart',trace,{margin:{t:30},paper_bgcolor:'transparent',plot_bgcolor:'transparent',font:{color:'#e6eef8'}},{responsive:true});
+    }
+
+    function drawDistribution(d){
+      const vals = d.map(r=>r._Amount||0).filter(v=>v>0);
+      const trace=[{x:vals,type:'histogram',marker:{color:'#EBA937'}}];
+      Plotly.newPlot('chart',trace,{margin:{t:30},paper_bgcolor:'transparent',plot_bgcolor:'transparent',font:{color:'#e6eef8'}},{responsive:true});
+    }
+
+    function drawTopGroups(d){
+      // group by ZIP or Example/Notes fallback
+      const key = detectColumns(d).includes('ZIP')?'ZIP':(detectColumns(d).includes('Example')?'Example':'Item');
+      const map = {};
+      for(const r of d){const k=r[key]||'Unknown'; map[k]=(map[k]||0)+(r._Amount||0)}
+      const items = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,20);
+      const trace=[{x:items.map(t=>t[0]),y:items.map(t=>t[1]),type:'bar',marker:{color:'#6EE7B7'}}];
+      Plotly.newPlot('chart',trace,{margin:{t:30},paper_bgcolor:'transparent',plot_bgcolor:'transparent',font:{color:'#e6eef8'},xaxis:{tickangle:-45}},{responsive:true});
+    }
+
+    function drawActiveTab(){
+      const active = document.querySelector('.tab.active').dataset.tab;
+      const data = table.rows({search:'applied'}).data().toArray();
+      if(active==='times') drawTimeSeries(data);
+      if(active==='dist') drawDistribution(data);
+      if(active==='top') drawTopGroups(data);
+    }
+
+    function wireTabs(){
+      document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');drawActiveTab();}));
+    }
+
+    function enableExport(){
+      document.getElementById('exportCsv').addEventListener('click',()=>{
+        const data = table.rows({search:'applied'}).data().toArray();
+        const cols = detectColumns(data); const lines=[cols.join(',')];
+        for(const r of data){lines.push(cols.map(c=> '"'+((r[c]||'').toString().replace(/"/g,'""'))+'"').join(','))}
+        const blob = new Blob([lines.join('\n')],{type:'text/csv'});
+        const url = URL.createObjectURL(blob); const a=document.createElement('a');a.href=url;a.download='mission-control-export.csv';a.click();URL.revokeObjectURL(url);
+      })
+    }
+
+    function loadCSVUrl(url){
+      fetch(url).then(r=>r.text()).then(t=>{
+        rawData = parseCSV(t); rawData = computeDerived(rawData);
+        buildKPIs(rawData); renderTable(rawData); wireTabs(); enableExport(); drawActiveTab();
+      });
+    }
+
+    // initial load from local file
+    loadCSVUrl(csvPath);
+
+    // drag/load file input
+    document.getElementById('fileInput').addEventListener('change',function(e){
+      const f = e.target.files[0]; if(!f) return; Papa.parse(f,{header:true,skipEmptyLines:true,complete:function(res){rawData = computeDerived(res.data); buildKPIs(rawData); renderTable(rawData); drawActiveTab();}});
+    });
+
+    // groupBy list
+    window.addEventListener('load',()=>{
+      setTimeout(()=>{const cols=detectColumns(rawData);const sel=document.getElementById('groupBy'); for(const c of cols){const o=document.createElement('option');o.value=c;o.text=c;sel.appendChild(o);} },600);
+    })
+
+    // dedupe button
+    document.getElementById('dedupe').addEventListener('click',()=>{
+      dedupeOn = !dedupeOn; if(dedupeOn){ const seen=new Set(); rawData = rawData.filter(r=>{const k = JSON.stringify(r); if(seen.has(k)) return false; seen.add(k); return true}); } loadCSVUrl(csvPath); });
+
+    // file drop support
+    document.body.addEventListener('dragover',e=>e.preventDefault()); document.body.addEventListener('drop',e=>{e.preventDefault(); if(e.dataTransfer.files.length) document.getElementById('fileInput').files = e.dataTransfer.files; });
+
+  </script>
+</body>
+</html>
